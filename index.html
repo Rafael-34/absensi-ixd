@@ -11,7 +11,7 @@
     display: table;
     width: fit-content;
     margin: 20px auto 0;
-    padding: 8px 14px;
+    padding: 8px 28px;
     background: linear-gradient(135deg, #c3d5ef, #626269);
     border-radius: 20px;
     text-align: center;
@@ -129,7 +129,6 @@ h2 {
     font-size: 12px;
     font-weight: bold;
 }
-
 label {
     display: block;
     font-weight: bold;
@@ -442,14 +441,17 @@ footer {
 
   <textarea
     id="attendanceReason"
+    class="placeholder"
     #attendanceReason {
-    font-size: 26px !important;
+    font-size: 16px !important;
     font-family: arial, sans-serif !important;
     line-height: 1.5;
     padding: 12px;
     border-radius: 12px;
+    box-sizing: border-box;
 }
-    placeholder="      Tulis alasan Anda... (contoh: sakit,acara keluarga,dll.)"
+    placeholder ="Tulis alasan Anda...
+contoh: Sakit, Berpergian, dll."
     rows="3"
     maxlength="300"
     style="width: 100%; box-sizing: border-box; margin-top: 8px; border-radius: 12px;"

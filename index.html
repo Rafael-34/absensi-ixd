@@ -8,11 +8,15 @@
 <style>
 [hidden] { display: none !important; }
 .nametag {
+    display: table;
+    width: fit-content;
+    margin: 20px auto 0;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #c3d5ef, #626269);
+    border-radius: 20px;
     text-align: center;
-    color:white;
-    font-size: 20px;
-    margin-top: 30px;
-    margin-bottom: 0;
+    color: white;
+    font-size: 14px;
     letter-spacing: 2px;
 }
 
@@ -52,7 +56,7 @@ body {
 }
 
 header {
-    background: linear-gradient(135deg, #473bf5, #f1ddff);
+    background: linear-gradient(135deg, #2955f5, #99bbfc);
     color: white;
     padding: 28px 20px 65px;
     border-radius: 0 0 30px 30px;
@@ -98,7 +102,7 @@ h2 {
 }
 
 .clock-box {
-    background: linear-gradient(135deg, #c4b7ff, #d0ffc2);
+    background: linear-gradient(135deg, #add0f8, #d3faba);
     padding: 18px;
     border-radius: 16px;
     margin-bottom: 22px;
@@ -118,7 +122,7 @@ h2 {
 .wib {
     display: inline-block;
     margin-top: 10px;
-    background: #1ceb20;
+    background: linear-gradient(135deg, #80fe80, #9ffdb2);
     color: rgb(0, 0, 0);
     padding: 6px 12px;
     border-radius: 20px;
@@ -190,13 +194,13 @@ button {
     width: 100%;
     padding: 15px;
     color: white;
-    background: linear-gradient(100deg, #6550ee, #a855f7);
+    background: linear-gradient(100deg, #0e89ed, #97d9f7);
     font-size: 16px;
     margin-top: 5px;
 }
 
 .submit:hover {
-    opacity: 0.9;
+    opacity: 0.8;
 }
 
 .stats {
@@ -342,12 +346,12 @@ footer {
 <header>
     <div class="container">
         <div class="logo">✓ ABSENSI SISWA KLS IX-D</div>
-        <h1>Halo, Siswa SPENSAGA! 👋</h1>
+        <h1>Halo, Siswa SPENSAGA!👋</h1>
         <h2>SMPN 1 SUGIHWARAS</h2>
         <p>
             Selamat datang di absensi digital by RAFAEL.
             Isi kehadiranmu dengan mudah dan jangan lupa
-            pastikan namamu sudah benar!
+            pastikan Namamu sudah BENAR!
         </p>
         <h3 class="nametag">-CROZZICE-</h3>
     </div>
@@ -357,10 +361,10 @@ footer {
 
     <section class="card">
         <h2>📝 Formulir Kehadiran</h2>
-        <p>Isi nama dan nomor absen, lalu pilih status kehadiranmu.</p>
+        <p>Isi Nama dan Nomor Absen, lalu pilih Status Kehadiranmu.</p>
 
         <div class="clock-box">
-            <div>🕒 WAKTU SEKARANG</div>
+            <div style="font-weight: bold">🕒 WAKTU SEKARANG</div>
             <div class="clock" id="clock">00:00:00</div>
             <div class="date" id="date">Memuat tanggal...</div>
             <span class="wib">WAKTU INDONESIA BARAT</span>
@@ -369,11 +373,11 @@ footer {
         <form id="attendanceForm">
 
             <div class="field">
-                <label for="studentName">Nama lengkap siswa</label>
+                <label for="studentName">Nama Lengkap Siswa</label>
                 <input
                     type="text"
                     id="studentName"
-                    placeholder="Masukkan nama lengkap..."
+                    placeholder="Masukkan Nama Lengkap..."
                     maxlength="70"
                     required
                 >
@@ -382,7 +386,7 @@ footer {
              <label for="nomorAbsen">Nomor Absen</label>
 
               <select id="nomorAbsen" required>
-                <option value="">Pilih nomor absen</option>
+                <option value="">Pilih Nomor Absen</option>
               </select>
             </div>
 
@@ -430,6 +434,31 @@ footer {
 
                 </div>
             </div>
+
+            <div id="reasonContainer" style="display: none; margin-top: 12px;">
+  <label for="attendanceReason">
+    Alasan (opsional)
+  </label>
+
+  <textarea
+    id="attendanceReason"
+    #attendanceReason {
+    font-size: 26px !important;
+    font-family: arial, sans-serif !important;
+    line-height: 1.5;
+    padding: 12px;
+    border-radius: 12px;
+}
+    placeholder="      Tulis alasan Anda... (contoh: sakit,acara keluarga,dll.)"
+    rows="3"
+    maxlength="300"
+    style="width: 100%; box-sizing: border-box; margin-top: 8px; border-radius: 12px;"
+  ></textarea>
+
+  <small>
+    Boleh dikosongkan jika tidak ingin memberikan alasan.
+  </small>
+</div>
 
             <button class="submit" type="submit">
                 Kirim Kehadiran →
@@ -485,12 +514,37 @@ footer {
     </section>
 
 </main>
-
+<div style="text-align: center; margin-top: 0px; font-size: 14px; color: #6550ee; font-weight: bold;">
+    "Akhlak Cemerlang Prestasi Gemilang"</div>
 <footer>
     Dibuat untuk membantu kelas menjadi lebih tertib ✨<br><a href="?admin=1" style="color:inherit">Admin</a>
 </footer>
 
 <script type="module">
+   
+    const reasonContainer = document.getElementById("reasonContainer");
+const attendanceReason = document.getElementById("attendanceReason");
+
+// Ganti "status" jika pilihan status di HTML-mu memakai ID lain.
+const statusOptions = document.querySelectorAll('input[name="status"]');
+
+statusOptions.forEach((option) => {
+  option.addEventListener("change", () => {
+    const selectedStatus = document.querySelector(
+      'input[name="status"]:checked'
+    )?.value;
+
+    const showReason =
+      selectedStatus === "Sakit" || selectedStatus === "Izin";
+
+    reasonContainer.style.display = showReason ? "block" : "none";
+
+    if (!showReason) {
+      attendanceReason.value = "";
+    }
+  });
+});
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
 import {
   getFirestore, doc, setDoc, getDocs, collection, query, orderBy,

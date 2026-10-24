@@ -337,6 +337,23 @@ footer {
         font-size: 10px;
     }
 }
+.attendance-reason {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  border: 1px solid #dedaf5;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
+  line-height: 1.5;
+  resize: vertical;
+}
+#reasonContainer small {
+  display: block;
+  margin-top: 6px;
+  color: #777;
+}
 </style>
 </head>
 
@@ -441,17 +458,9 @@ footer {
 
   <textarea
     id="attendanceReason"
-    class="placeholder"
-    #attendanceReason {
-    font-size: 16px !important;
-    font-family: arial, sans-serif !important;
-    line-height: 1.5;
-    padding: 12px;
-    border-radius: 12px;
-    box-sizing: border-box;
-}
-    placeholder ="Tulis alasan Anda...
-contoh: Sakit, Berpergian, dll."
+    class="attendance-reason"
+    placeholder="Tulis alasan Anda...
+contoh: Sakit, bepergian, dll."
     rows="3"
     maxlength="300"
     style="width: 100%; box-sizing: border-box; margin-top: 8px; border-radius: 12px;"
@@ -564,7 +573,6 @@ const firebaseConfig = {
   messagingSenderId: "371612225151",
   appId: "1:371612225151:web:0ce09f6568ea93b4bb394a"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
@@ -706,6 +714,13 @@ async function loadAdminEntries() {
       badge.className = "badge " + String(entry.status || "").toLowerCase();
       badge.textContent = entry.status || "Tidak diketahui";
       info.append(name, time);
+      if ((entry.status === "Sakit" || entry.status === "Izin") && entry.reason) {
+        const reason = document.createElement("div");
+        reason.className = "entry-time";
+        reason.style.marginTop = "5px";
+        reason.textContent = `Alasan: ${entry.reason}`;
+        info.appendChild(reason);
+      }
       row.append(avatar, info, badge);
       container.appendChild(row);
     });
@@ -718,8 +733,8 @@ function exportAdminCSV() {
     alert("Belum ada data absensi untuk hari ini.");
     return;
   }
-  const rows = [["Nomor", "Nama", "Status", "Tanggal", "Jam", "Zona Waktu"]];
-  adminRows.forEach(e => rows.push([e.nomor, e.name, e.status, e.date || e.dateKey, e.time || "", "WIB"]));
+  const rows = [["Nomor", "Nama", "Status", "Alasan", "Tanggal", "Jam", "Zona Waktu"]];
+  adminRows.forEach(e => rows.push([e.nomor, e.name, e.status, e.reason || "", e.date || e.dateKey, e.time || "", "WIB"]));
   const quote = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
   const csv = "\uFEFF" + rows.map(r => r.map(quote).join(",")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -743,13 +758,14 @@ if (adminMode) {
     const name = $("studentName").value.trim();
     const nomor = Number($("nomorAbsen").value);
     const status = document.querySelector('input[name="status"]:checked')?.value;
+    const reason = (status === "Sakit" || status === "Izin") ? attendanceReason.value.trim() : "";
     if (!name) return alert("Silakan isi nama lengkap terlebih dahulu!");
     if (!Number.isInteger(nomor) || nomor < 1 || nomor > 32) return alert("Silakan pilih nomor absen!");
     if (!statusValues.includes(status)) return alert("Pilih status kehadiran yang benar.");
     const now = getNow();
     const dateKey = getDateKey(now);
     const entry = {
-      nomor, name, status,
+      nomor, name, status, reason,
       dateKey, date: formatDate(now), time: formatTime(now),
       timestampMs: now.getTime(),
       timestamp: serverTimestamp()

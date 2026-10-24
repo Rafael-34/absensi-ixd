@@ -478,7 +478,7 @@ footer {
             <div id="photoContainer">
               <label for="proofPhoto">📷 Foto bukti (opsional)</label>
               <input id="proofPhoto" type="file" accept="image/jpeg,image/png,image/webp" />
-              <small>Opsional untuk Hadir, Sakit, atau Izin.</small>
+              <small>Opsional untuk Hadir, Sakit, atau Izin. Format JPG, PNG, atau WEBP; maksimal 5 MB.</small>
               <img id="photoPreview" alt="Pratinjau foto bukti" />
             </div>
 
@@ -578,7 +578,7 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-storage.js";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDHsAe_6euUzDXveeG7Xh-tlpb7Xu2uoNM",
@@ -609,6 +609,48 @@ proofPhoto.addEventListener("change", () => {
 });
 const publicCards = document.querySelectorAll("main.content > section.card");
 const statusValues = ["Hadir", "Izin", "Sakit", "Alpa"];
+
+// Kompres foto di browser agar unggahan lebih ringan dan cepat.
+async function compressPhoto(file) {
+  if (!file || !file.type.startsWith("image/")) return file;
+  try {
+    const imageBitmap = await createImageBitmap(file);
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(imageBitmap.width, imageBitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(imageBitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(imageBitmap.height * scale));
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+    imageBitmap.close?.();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.78));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg", lastModified: Date.now() });
+  } catch (error) {
+    console.warn("Kompresi foto tidak tersedia, memakai foto asli.", error);
+    return file;
+  }
+}
+
+function uploadPhotoWithProgress(file, photoRef, button) {
+  return new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(photoRef, file, { contentType: file.type });
+    const timeout = setTimeout(() => {
+      task.cancel();
+      reject(new Error("Upload foto terlalu lama (lebih dari 60 detik). Periksa Firebase Storage Rules, bucket, dan koneksi internet."));
+    }, 60000);
+    task.on("state_changed", snapshot => {
+      const percent = snapshot.totalBytes ? Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100) : 0;
+      button.textContent = `Mengunggah foto... ${percent}%`;
+    }, error => {
+      clearTimeout(timeout);
+      reject(error);
+    }, () => {
+      clearTimeout(timeout);
+      resolve(task.snapshot);
+    });
+  });
+}
 
 function getNow() { return new Date(); }
 function formatTime(date) {
@@ -823,10 +865,12 @@ if (adminMode) {
     try {
       // Unggah foto opsional ke Firebase Storage, lalu simpan URL-nya di Firestore.
       if (selectedPhoto) {
-        submitButton.textContent = "Mengunggah foto...";
+        submitButton.textContent = "Menyiapkan foto...";
+        const optimizedPhoto = await compressPhoto(selectedPhoto);
         const safeName = selectedPhoto.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80);
-        const photoRef = storageRef(storage, `attendance-proof/${id}/${Date.now()}_${safeName}`);
-        const uploaded = await uploadBytes(photoRef, selectedPhoto, { contentType: selectedPhoto.type });
+        const photoRef = storageRef(storage, `attendance-proof/${id}/${Date.now()}_${safeName.replace(/\.[^.]+$/, "")}.jpg`);
+        const uploaded = await uploadPhotoWithProgress(optimizedPhoto, photoRef, submitButton);
+        submitButton.textContent = "Menyiapkan tautan foto...";
         entry.photoURL = await getDownloadURL(uploaded.ref);
       }
       // Satu dokumen per nomor absen per tanggal; pengiriman ulang tidak menimpa data lama.
@@ -844,6 +888,10 @@ if (adminMode) {
         alert("Absensi ditolak oleh Firestore Rules. Buka Firebase Console > Firestore Database > Rules, lalu pasang rules terbaru dari file firestore.rules_alasan_diperbaiki.txt.");
       } else if (err.code === "already-exists") {
         alert("Absensi untuk nomor ini sudah ada hari ini. Hubungi admin jika perlu diperbaiki.");
+      } else if (err.code === "storage/unauthorized" || err.code === "storage/unauthenticated") {
+        alert("Upload foto ditolak oleh Firebase Storage Rules. Periksa Firebase Console > Storage > Rules.");
+      } else if (err.code === "storage/bucket-not-found" || err.code === "storage/no-default-bucket") {
+        alert("Firebase Storage belum siap atau nama bucket salah. Periksa Firebase Console > Storage dan konfigurasi storageBucket.");
       } else {
         alert("Absensi gagal dikirim: " + (err.code || err.message || "Periksa koneksi internet dan pengaturan Firebase."));
       }

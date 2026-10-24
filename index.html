@@ -349,16 +349,6 @@ footer {
   line-height: 1.5;
   resize: vertical;
 }
-#reasonContainer small, #photoContainer small {
-  display: block;
-  margin-top: 6px;
-  color: #777;
-}
-#photoContainer { margin-top: 14px; }
-#proofPhoto { display:block; width:100%; margin-top:8px; padding:10px; border:1px solid #dedaf5; border-radius:12px; background:#fff; }
-#photoPreview { display:none; max-width:100%; max-height:240px; margin-top:10px; border-radius:12px; object-fit:contain; }
-.proof-link { display:inline-block; margin-top:6px; color:#2c45e7; font-weight:bold; }
-.proof-thumb { display:block; max-width:180px; max-height:160px; object-fit:contain; border-radius:10px; margin-top:8px; border:1px solid #dedaf5; }
 </style>
 </head>
 
@@ -474,15 +464,7 @@ footer {
     Boleh dikosongkan jika tidak ingin memberikan alasan.
   </small>
 </div>
-
-            <div id="photoContainer">
-              <label for="proofPhoto">📷 Foto bukti (opsional)</label>
-              <input id="proofPhoto" type="file" accept="image/jpeg,image/png,image/webp" />
-              <small>Opsional untuk Hadir, Sakit, atau Izin. Format JPG, PNG, atau WEBP; maksimal 5 MB.</small>
-              <img id="photoPreview" alt="Pratinjau foto bukti" />
-            </div>
-
-            <button class="submit" type="submit">
+<button class="submit" type="submit">
                 Kirim Kehadiran →
             </button>
 
@@ -564,9 +546,6 @@ statusOptions.forEach((option) => {
     if (!showReason) {
       attendanceReason.value = "";
     }
-    const selected = document.querySelector('input[name="status"]:checked')?.value;
-    photoContainer.style.display = ["Hadir", "Sakit", "Izin"].includes(selected) ? "block" : "none";
-    if (selected === "Alpa") { proofPhoto.value = ""; photoPreview.removeAttribute("src"); photoPreview.style.display = "none"; }
   });
 });
 
@@ -578,7 +557,6 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDHsAe_6euUzDXveeG7Xh-tlpb7Xu2uoNM",
@@ -591,66 +569,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const storage = getStorage(app);
 
 const $ = (id) => document.getElementById(id);
 const adminMode = new URLSearchParams(location.search).get("admin") === "1";
 const form = $("attendanceForm");
-const proofPhoto = $("proofPhoto");
-const photoPreview = $("photoPreview");
-const photoContainer = $("photoContainer");
-proofPhoto.addEventListener("change", () => {
-  const file = proofPhoto.files?.[0];
-  if (!file) { photoPreview.removeAttribute("src"); photoPreview.style.display = "none"; return; }
-  if (!file.type.startsWith("image/")) { alert("Pilih file gambar JPG, PNG, atau WEBP."); proofPhoto.value = ""; photoPreview.style.display = "none"; return; }
-  if (file.size > 5 * 1024 * 1024) { alert("Ukuran foto maksimal 5 MB."); proofPhoto.value = ""; photoPreview.style.display = "none"; return; }
-  photoPreview.src = URL.createObjectURL(file);
-  photoPreview.style.display = "block";
-});
 const publicCards = document.querySelectorAll("main.content > section.card");
 const statusValues = ["Hadir", "Izin", "Sakit", "Alpa"];
-
-// Kompres foto di browser agar unggahan lebih ringan dan cepat.
-async function compressPhoto(file) {
-  if (!file || !file.type.startsWith("image/")) return file;
-  try {
-    const imageBitmap = await createImageBitmap(file);
-    const maxSide = 1600;
-    const scale = Math.min(1, maxSide / Math.max(imageBitmap.width, imageBitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(imageBitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(imageBitmap.height * scale));
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
-    imageBitmap.close?.();
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.78));
-    if (!blob) return file;
-    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg", lastModified: Date.now() });
-  } catch (error) {
-    console.warn("Kompresi foto tidak tersedia, memakai foto asli.", error);
-    return file;
-  }
-}
-
-function uploadPhotoWithProgress(file, photoRef, button) {
-  return new Promise((resolve, reject) => {
-    const task = uploadBytesResumable(photoRef, file, { contentType: file.type });
-    const timeout = setTimeout(() => {
-      task.cancel();
-      reject(new Error("Upload foto terlalu lama (lebih dari 60 detik). Periksa Firebase Storage Rules, bucket, dan koneksi internet."));
-    }, 60000);
-    task.on("state_changed", snapshot => {
-      const percent = snapshot.totalBytes ? Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100) : 0;
-      button.textContent = `Mengunggah foto... ${percent}%`;
-    }, error => {
-      clearTimeout(timeout);
-      reject(error);
-    }, () => {
-      clearTimeout(timeout);
-      resolve(task.snapshot);
-    });
-  });
-}
 
 function getNow() { return new Date(); }
 function formatTime(date) {
@@ -790,21 +714,6 @@ async function loadAdminEntries() {
         reason.textContent = `Alasan: ${entry.reason}`;
         info.appendChild(reason);
       }
-      if (entry.photoURL) {
-        const photoLink = document.createElement("a");
-        photoLink.className = "proof-link";
-        photoLink.href = entry.photoURL;
-        photoLink.target = "_blank";
-        photoLink.rel = "noopener noreferrer";
-        photoLink.textContent = "📷 Lihat foto bukti";
-        info.appendChild(photoLink);
-        const photo = document.createElement("img");
-        photo.className = "proof-thumb";
-        photo.src = entry.photoURL;
-        photo.alt = "Foto bukti absensi";
-        photo.loading = "lazy";
-        info.appendChild(photo);
-      }
       row.append(avatar, info, badge);
       container.appendChild(row);
     });
@@ -817,8 +726,8 @@ function exportAdminCSV() {
     alert("Belum ada data absensi untuk hari ini.");
     return;
   }
-  const rows = [["Nomor", "Nama", "Status", "Alasan", "Foto Bukti URL", "Tanggal", "Jam", "Zona Waktu"]];
-  adminRows.forEach(e => rows.push([e.nomor, e.name, e.status, e.reason || "", e.photoURL || "", e.date || e.dateKey, e.time || "", "WIB"]));
+  const rows = [["Nomor", "Nama", "Status", "Alasan", "Tanggal", "Jam", "Zona Waktu"]];
+  adminRows.forEach(e => rows.push([e.nomor, e.name, e.status, e.reason || "", e.date || e.dateKey, e.time || "", "WIB"]));
   const quote = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
   const csv = "\uFEFF" + rows.map(r => r.map(quote).join(",")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -843,13 +752,9 @@ if (adminMode) {
     const nomor = Number($("nomorAbsen").value);
     const status = document.querySelector('input[name="status"]:checked')?.value;
     const reason = (status === "Sakit" || status === "Izin") ? attendanceReason.value.trim() : "";
-    const selectedPhoto = proofPhoto.files?.[0] || null;
     if (!name) return alert("Silakan isi nama lengkap terlebih dahulu!");
     if (!Number.isInteger(nomor) || nomor < 1 || nomor > 32) return alert("Silakan pilih nomor absen!");
     if (!statusValues.includes(status)) return alert("Pilih status kehadiran yang benar.");
-    if (selectedPhoto && !["image/jpeg", "image/png", "image/webp"].includes(selectedPhoto.type)) return alert("Foto harus berformat JPG, PNG, atau WEBP.");
-    if (selectedPhoto && selectedPhoto.size > 5 * 1024 * 1024) return alert("Ukuran foto maksimal 5 MB.");
-    if (selectedPhoto && !["Hadir", "Sakit", "Izin"].includes(status)) return alert("Foto bukti hanya tersedia untuk status Hadir, Sakit, atau Izin.");
     const now = getNow();
     const dateKey = getDateKey(now);
     const id = `${dateKey}_${String(nomor).padStart(2, "0")}`;
@@ -863,23 +768,11 @@ if (adminMode) {
     submitButton.disabled = true;
     submitButton.textContent = "Mengirim...";
     try {
-      // Unggah foto opsional ke Firebase Storage, lalu simpan URL-nya di Firestore.
-      if (selectedPhoto) {
-        submitButton.textContent = "Menyiapkan foto...";
-        const optimizedPhoto = await compressPhoto(selectedPhoto);
-        const safeName = selectedPhoto.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80);
-        const photoRef = storageRef(storage, `attendance-proof/${id}/${Date.now()}_${safeName.replace(/\.[^.]+$/, "")}.jpg`);
-        const uploaded = await uploadPhotoWithProgress(optimizedPhoto, photoRef, submitButton);
-        submitButton.textContent = "Menyiapkan tautan foto...";
-        entry.photoURL = await getDownloadURL(uploaded.ref);
-      }
       // Satu dokumen per nomor absen per tanggal; pengiriman ulang tidak menimpa data lama.
       submitButton.textContent = "Menyimpan absensi...";
       await setDoc(doc(db, "attendance", id), entry, { merge: false });
       alert("Terima kasih, " + name + "! Kehadiran berhasil dikirim.");
       form.reset();
-      photoPreview.removeAttribute("src");
-      photoPreview.style.display = "none";
       reasonContainer.style.display = "none";
       document.querySelector('input[name="status"][value="Hadir"]').checked = true;
     } catch (err) {
@@ -888,10 +781,6 @@ if (adminMode) {
         alert("Absensi ditolak oleh Firestore Rules. Buka Firebase Console > Firestore Database > Rules, lalu pasang rules terbaru dari file firestore.rules_alasan_diperbaiki.txt.");
       } else if (err.code === "already-exists") {
         alert("Absensi untuk nomor ini sudah ada hari ini. Hubungi admin jika perlu diperbaiki.");
-      } else if (err.code === "storage/unauthorized" || err.code === "storage/unauthenticated") {
-        alert("Upload foto ditolak oleh Firebase Storage Rules. Periksa Firebase Console > Storage > Rules.");
-      } else if (err.code === "storage/bucket-not-found" || err.code === "storage/no-default-bucket") {
-        alert("Firebase Storage belum siap atau nama bucket salah. Periksa Firebase Console > Storage dan konfigurasi storageBucket.");
       } else {
         alert("Absensi gagal dikirim: " + (err.code || err.message || "Periksa koneksi internet dan pengaturan Firebase."));
       }
